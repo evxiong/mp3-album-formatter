@@ -2,13 +2,13 @@
 
 a command line tool to update MP3 metadata according to Apple Music
 
-## What it does
-
 - This code is designed specifically to work on **MP3 files only**
 
   - MP3 files in the album must have already have file names similar to the
     actual track names listed on Apple Music
     <!--file names or track name metadata-->
+
+## What it does
 
 - Updates ID3 metadata for each MP3 song in the specified album folder according
   to Apple Music, including:
@@ -34,21 +34,22 @@ a command line tool to update MP3 metadata according to Apple Music
 
 ## How to use
 
+### Prerequisites
+
+- All of the songs you want to update should belong to the same album and be
+  directly contained in a single folder or ZIP. **No songs should be contained
+  in nested folders.**
+- Song file names <!--and/or existing track name metadata--> should be close to
+  (doesn't need to be exact) their track names listed on Apple Music -- this is
+  so that the script can match files with the correct metadata.
+- The number of songs in the album folder must be <= the total number of tracks
+  in the album.
+
 ### Setup
 
 1. `git clone` this repo
 2. `cd` into the folder
 3. run `pip install requirements.txt`
-
-### Prerequisites
-
-- The album folder should directly contain all of the songs in the album. **No
-  songs should be contained in nested folders.** The album can be a ZIP file.
-- Currently, the album folder must contain the same number of songs listed on
-  the album's Apple Music page.
-- Song file names <!--and/or existing track name metadata--> should be close to
-  (doesn't need to be exact) their track names listed on Apple Music -- this is
-  so that the script can match files with the correct metadata.
 
 ### Usage
 
@@ -60,9 +61,10 @@ python3 formatter.py [options] <album_path> [dest_path] <AM_album_link>
 
 #### Arguments
 
-- `album_path`: relative path to album folder or album ZIP
-- `dest_path`: relative path to unzipped destination folder, required if `-x`
-  (extract) option specified
+- `album_path`: **relative** path to album folder or album ZIP. This folder or
+  ZIP contains all MP3 files you want to update.
+- `dest_path`: **relative** path to unzipped destination folder, only required
+  if `-x` (extract) option specified
 - `AM_album_link`: full URL to album page on Apple Music Web Player (ex.
   https://music.apple.com/us/album/thriller/269572838)
 
@@ -72,10 +74,10 @@ python3 formatter.py [options] <album_path> [dest_path] <AM_album_link>
 -x, --extract           extract songs from album_path ZIP file to dest_path
                         creates destination folder if it does not exist
 
--a, --keep-album        keep album folder name the same;
+-a, --preserve-album    keep album folder name the same;
                         default behavior is to rename album folder to match album name
 
--s, --keep-songs        keep all song file names the same;
+-s, --preserve-songs    keep all song file names the same;
                         default behavior is to rename all song files to match track names
 ```
 
@@ -123,8 +125,6 @@ Playwright, Mutagen, RapidFuzz, Questionary, Tabulate
 
 ## Future features
 
-- Support for updating metadata on single tracks or a subset of tracks from an
-  album
 - Support for user-specified file name format
 - Support for nested MP3 files in the album folder
 - Support for using track name metadata for matching, when file names are not helpful
