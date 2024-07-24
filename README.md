@@ -1,12 +1,11 @@
 # 💿 mp3-album-formatter
 
-a command line tool to update MP3 metadata according to Apple Music
+a command line tool to update MP3 metadata, folders, and file names according to
+Apple Music
 
-> [!IMPORTANT] This code is designed specifically to work on **MP3 files only**.
-> MP3 files in the album must have already have file names similar to the actual
-> track names listed on Apple Music.
-
-<!--file names or track name metadata-->
+> [!IMPORTANT] This script is designed specifically to work on **MP3 files
+> only**. MP3 files in the album must have already have file names or track name
+> metadata similar to the actual track names listed on Apple Music.
 
 ## What it does
 
@@ -33,6 +32,8 @@ a command line tool to update MP3 metadata according to Apple Music
     - `-S "<format>"` allows custom file names
   - By default, treats album folder as unzipped
     - `-x` flag unzips album ZIP to a specified destination folder
+  - By default, uses file names to match album tracks
+    - `-m` flag uses each file's existing track name metadata
 
 ## How to use
 
@@ -43,7 +44,7 @@ a command line tool to update MP3 metadata according to Apple Music
   moved to the root album folder.
 - The number of songs in the album folder must be <= the total number of tracks
   in the album.
-- Song file names <!--and/or existing track name metadata--> should be close to
+- Song file names and/or existing track name metadata should be close to
   (doesn't need to be exact) their track names listed on Apple Music -- this is
   so that the script can match files with the correct metadata.
 
@@ -76,6 +77,8 @@ python3 formatter.py [options] <album_path> [<dest_path>] <AM_album_link>
 -x, --extract           extract songs from <album_path> ZIP file to <dest_path>
                         creates destination folder if it does not exist
 
+-m, --use-metadata      use existing track name metadata instead of file name to match files to album tracks
+
 -a, --preserve-album    keep album folder name the same;
                         without any options, default behavior is to rename album folder to match album name
 
@@ -105,7 +108,6 @@ python3 formatter.py [options] <album_path> [<dest_path>] <AM_album_link>
                         use quotes around the format, and do not include '.mp3':
                           ex. -S "%d.%n - %t"  ==>  file name: "1.01 - Wanna Be Startin' Somethin'.mp3"
                         without this option, default format is "%t"
-
 ```
 
 #### Examples
@@ -160,16 +162,9 @@ python3 formatter.py -A "%a (%y)" -S "%r - %t" ../album_folder https://music.app
    files can't be auto-matched
 4. Updates each file's ID3 metadata using
    [Mutagen](https://github.com/quodlibet/mutagen)
-5. Optionally updates file names and album folder name according to specified format
+5. Optionally updates file names and album folder name according to specified
+   format
 
 ## Packages used
 
 Playwright, Mutagen, RapidFuzz, Questionary, Tabulate
-
-<!--
-
-## Future features
-
-- Support for using track name metadata for matching, when file names are not helpful
-
--->

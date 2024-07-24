@@ -29,6 +29,7 @@ class Formatter:
         dest_path: str,
         album_link: str,
         extract: bool,
+        use_metadata: bool,
         preserve_album_name: bool,
         preserve_song_names: bool,
         album_name_format: str | None,
@@ -49,8 +50,12 @@ class Formatter:
         self.__dest_path = dest_path
         self.__album_link = album_link
         self.__flag_extract = extract
+        self.__flag_use_metadata = use_metadata
         self.__flag_preserve_album_name = preserve_album_name
         self.__flag_preserve_song_names = preserve_song_names
+        self.__update_path = (
+            self.__dest_path if self.__flag_extract else self.__album_path
+        )
         self.__metadata = {}
 
     def run(self):
@@ -91,7 +96,7 @@ class Formatter:
 
         Deletes all nested folders after moving files
         """
-        root_folder = self.__dest_path if self.__flag_extract else self.__album_path
+        root_folder = self.__update_path
         for root, _, files in os.walk(root_folder):
             for file in files:
                 if root != root_folder:
@@ -199,6 +204,7 @@ class Formatter:
         file_names_ext: List[str],
         scraped_tracks_dict: dict[str, int],
         scraped_tracks: List[str],
+        existing_metadata_titles: List[str],
     ) -> dict[str, int]:
         """Match files to tracks when there are less files than tracks in album.
 
@@ -241,7 +247,7 @@ class Formatter:
                     )
                     for track in self.__metadata["tracks"]
                 ],
-                ["cd", "#", "track name", "track artists"],
+                ["cd", "#", "track name", "add'l track artists"],
             ),
             end="\n\n",
         )
@@ -253,14 +259,21 @@ class Formatter:
             style="bold fg:ansibrightgreen",
         )
 
+        scraped_tracks_copy = [t for t in scraped_tracks]
+
         for i, file_name in enumerate(file_names_ext):
             chosen = questionary.autocomplete(
-                f"{file_name}:",
-                choices=scraped_tracks,
+                f"{file_name}{" [" + existing_metadata_titles[i] + "]" if self.__flag_use_metadata else ""}:",
+                choices=scraped_tracks_copy,
                 qmark="[>]",
-                default=scraped_tracks[best_match_inds[i]],
-                validate=lambda res: res in scraped_tracks,
+                default=(
+                    scraped_tracks[best_match_inds[i]]
+                    if scraped_tracks[best_match_inds[i]] in scraped_tracks_copy
+                    else ""
+                ),
+                validate=lambda res: res in scraped_tracks_copy,
             ).ask()
+            scraped_tracks_copy.remove(chosen)
             result[file_name] = scraped_tracks_dict[chosen]
 
         return result
@@ -271,12 +284,14 @@ class Formatter:
         best_scores,
         file_names_ext: List[str],
         scraped_tracks: List[str],
+        existing_metadata_titles: List[str],
     ) -> dict[str, int]:
         # If there are duplicates, they need to be manually corrected in cmd line
         matched_track_names = []  # [(int, int, str, str, float)] for display
         unmatched_tracks = []  # unresolved track names
         unmatched_inds = []  # indices of unresolved track names
         unmatched_files = []  # unresolved file names
+        unmatched_existing_metadata_titles = []
 
         x = [
             [] for _ in range(len(file_names_ext))
@@ -294,6 +309,7 @@ class Formatter:
                         self.__metadata["tracks"][scraped_i]["num"],
                         scraped_tracks[scraped_i],
                         "*** UNMATCHED ***",
+                        "*** UNMATCHED ***",
                         float("nan"),
                     ]
                 )
@@ -302,11 +318,15 @@ class Formatter:
                 unmatched_inds.append(scraped_i)
                 unmatched_tracks.append(scraped_tracks[scraped_i])
                 unmatched_files += [file_names_ext[i] for i in file_inds]
+                unmatched_existing_metadata_titles += [
+                    existing_metadata_titles[i] for i in file_inds
+                ]
                 matched_track_names.append(
                     [
                         self.__metadata["tracks"][scraped_i]["disc"],
                         self.__metadata["tracks"][scraped_i]["num"],
                         scraped_tracks[scraped_i],
+                        "*** UNMATCHED ***",
                         "*** UNMATCHED ***",
                         float("nan"),
                     ]
@@ -319,6 +339,12 @@ class Formatter:
                         self.__metadata["tracks"][scraped_i]["num"],
                         scraped_tracks[scraped_i],
                         file_names_ext[file_inds[0]],
+                        file_names_ext[file_inds[0]]
+                        + (
+                            f" [{existing_metadata_titles[file_inds[0]]}]"
+                            if self.__flag_use_metadata
+                            else ""
+                        ),
                         best_scores[file_inds[0]],
                     ]
                 )
@@ -336,8 +362,8 @@ class Formatter:
         )
         print(
             tabulate(
-                matched_track_names,
-                ["cd", "#", "track name", "matched file", "similarity"],
+                [(m[0], m[1], m[2], m[4], m[5]) for m in matched_track_names],
+                ["cd", "#", "track name", "matched file [existing name]", "similarity"],
                 floatfmt=".1f",
             )
         )
@@ -361,20 +387,40 @@ class Formatter:
                 style="bold fg:ansibrightgreen",
             )
 
+            choices = []
+            choices_to_files_dict = {}
+            for i in range(len(unmatched_files)):
+                choice = unmatched_files[i] + (
+                    f" [{unmatched_existing_metadata_titles[i]}]"
+                    if self.__flag_use_metadata
+                    else ""
+                )
+                choices.append(choice)
+                choices_to_files_dict[choice] = unmatched_files[i]
+
             for i in range(len(unmatched_tracks)):
                 chosen = questionary.select(
                     f"{unmatched_tracks[i]}",
-                    choices=unmatched_files,
+                    choices=choices,
                     qmark="[>]",
                 ).ask()
-                matched_track_names[unmatched_inds[i]][3] = chosen
-                unmatched_files.remove(chosen)
+                matched_track_names[unmatched_inds[i]][3] = choices_to_files_dict[
+                    chosen
+                ]
+                matched_track_names[unmatched_inds[i]][4] = chosen
+                choices.remove(chosen)
 
             print()
             print(
                 tabulate(
-                    matched_track_names,
-                    ["cd", "#", "track name", "matched file", "similarity"],
+                    [(m[0], m[1], m[2], m[4], m[5]) for m in matched_track_names],
+                    [
+                        "cd",
+                        "#",
+                        "track name",
+                        "matched file [existing name]",
+                        "similarity",
+                    ],
                     floatfmt=".1f",
                 ),
                 end="\n\n",
@@ -397,15 +443,19 @@ class Formatter:
         """
         print("Matching songs...")
         file_names_ext = [
-            file
-            for file in os.listdir(
-                self.__dest_path if self.__flag_extract else self.__album_path
-            )
-            if file.endswith(".mp3")
+            file for file in os.listdir(self.__update_path) if file.endswith(".mp3")
         ]
         file_names = [
             os.path.splitext(file_name_ext)[0] for file_name_ext in file_names_ext
         ]
+        existing_metadata_titles = []
+        for file_name in file_names_ext:
+            audio = ID3(os.path.join(self.__update_path, file_name), v2_version=3)
+            TIT2_obj = audio.get("TIT2")
+            title = ""
+            if TIT2_obj is not None:
+                title = TIT2_obj.text[0]
+            existing_metadata_titles.append(title)
         scraped_tracks_dict = {
             track["name"]: i for i, track in enumerate(self.__metadata["tracks"])
         }
@@ -422,7 +472,9 @@ class Formatter:
             # matrix values are scores btwn 0 and 100
             # see: https://rapidfuzz.github.io/RapidFuzz/Usage/process.html#cdist
             matrix = process.cdist(
-                file_names, scraped_tracks, scorer=fuzz.partial_ratio
+                existing_metadata_titles if self.__flag_use_metadata else file_names,
+                scraped_tracks,
+                scorer=fuzz.partial_ratio,
             )
 
             # Get the index of the max score in each row,
@@ -436,11 +488,19 @@ class Formatter:
 
             if len(file_names) < len(scraped_tracks):
                 return self.__match_less(
-                    best_match_inds, file_names_ext, scraped_tracks_dict, scraped_tracks
+                    best_match_inds,
+                    file_names_ext,
+                    scraped_tracks_dict,
+                    scraped_tracks,
+                    existing_metadata_titles,
                 )
             else:
                 return self.__match_same(
-                    best_match_inds, best_scores, file_names_ext, scraped_tracks
+                    best_match_inds,
+                    best_scores,
+                    file_names_ext,
+                    scraped_tracks,
+                    existing_metadata_titles,
                 )
 
     def format_album_name(self) -> str:
@@ -495,8 +555,6 @@ class Formatter:
         - filenames_to_track_inds: file name -> track index (0-based)
 
         """
-        update_path = self.__dest_path if self.__flag_extract else self.__album_path
-
         # prompt user input for confirmation
         print()
         proceed = questionary.confirm(
@@ -507,7 +565,7 @@ class Formatter:
         print("Updating metadata (this may take some time)...")
 
         for file_name, i in filenames_to_track_inds.items():
-            audio = ID3(os.path.join(update_path, file_name), v2_version=3)
+            audio = ID3(os.path.join(self.__update_path, file_name), v2_version=3)
 
             # set album name - TALB
             audio.setall(
@@ -600,8 +658,8 @@ class Formatter:
                         re.sub(r'[<>:"\/\\\|\?\*]', "", formatted_names[i]) + ".mp3"
                     )
                     os.rename(
-                        os.path.join(update_path, file_name),
-                        os.path.join(update_path, new_file_name),
+                        os.path.join(self.__update_path, file_name),
+                        os.path.join(self.__update_path, new_file_name),
                     )
             else:
                 questionary.print(
@@ -614,9 +672,10 @@ class Formatter:
             print("Renaming album folder...")
             new_album_name = re.sub(r'[<>:"\/\\\|\?\*]', "", self.format_album_name())
             os.rename(
-                update_path,
+                self.__update_path,
                 os.path.join(
-                    os.path.dirname(os.path.normpath(update_path)), new_album_name
+                    os.path.dirname(os.path.normpath(self.__update_path)),
+                    new_album_name,
                 ),
             )
 
@@ -649,6 +708,12 @@ def main() -> None:
         "--extract",
         action="store_true",
         help="extract files from album_path zip file to dest_path",
+    )
+    parser.add_argument(
+        "-m",
+        "--use-metadata",
+        action="store_true",
+        help="use existing track name metadata instead of file name to match files to album tracks",
     )
     parser.add_argument(
         "-a",
@@ -688,6 +753,7 @@ def main() -> None:
         args.dest_path,
         args.AM_album_link,
         args.extract,
+        args.use_metadata,
         args.preserve_album_name,
         args.preserve_song_names,
         args.album_name_format,
