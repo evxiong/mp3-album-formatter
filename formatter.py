@@ -41,30 +41,62 @@ class Formatter:
 
     def run(self):
         try:
-            if self.__flag_extract:
-                print("Unzipping file...")
-                with ZipFile(self.__album_path, "r") as z:
-                    z.extractall(self.__dest_path)
-
+            self.unzip()
+            self.flatten()
             self.scrape()
             filenames_to_track_inds = self.match()
             self.update(filenames_to_track_inds)
-
-            if self.__flag_extract:
-                print()
-                proceed = questionary.confirm(
-                    f"Delete original ZIP file: {self.__album_path}?",
-                    qmark="[>]",
-                    default=True,
-                    auto_enter=False,
-                ).ask()
-                if proceed and os.path.isfile(self.__album_path):
-                    os.remove(self.__album_path)
-                    print("File deleted.")
+            self.delete_zip()
         except Exception as e:
+            # delete unzipped folder
             if self.__dest_path and os.path.isdir(self.__dest_path):
                 shutil.rmtree(self.__dest_path)
             print(e)
+
+    def unzip(self) -> None:
+        """Unzip album"""
+        if self.__flag_extract:
+            print("Unzipping file...")
+            with ZipFile(self.__album_path, "r") as z:
+                z.extractall(self.__dest_path)
+
+    def delete_zip(self) -> None:
+        """Prompt user to delete original ZIP"""
+        if self.__flag_extract:
+            print()
+            proceed = questionary.confirm(
+                f"Delete original ZIP file: {self.__album_path}?",
+                qmark="[>]",
+                default=True,
+                auto_enter=False,
+            ).ask()
+            if proceed and os.path.isfile(self.__album_path):
+                os.remove(self.__album_path)
+                print("File deleted.")
+
+    def flatten(self) -> None:
+        """Move all files out of nested folders into root album folder
+
+        Deletes all nested folders after moving files
+        """
+        root_folder = self.__dest_path if self.__flag_extract else self.__album_path
+        for root, _, files in os.walk(root_folder):
+            for file in files:
+                if root != root_folder:
+                    # rename nested file if conflict
+                    name, ext = os.path.splitext(file)
+                    a = ""
+                    while os.path.exists(os.path.join(root_folder, name + a + ext)):
+                        a += "_"
+                    new_filepath = os.path.join(root, name + a + ext)
+                    os.rename(os.path.join(root, file), new_filepath)
+
+                    # move nested file
+                    shutil.move(new_filepath, root_folder)
+
+        # delete all nested folders
+        for subfolder in next(os.walk(root_folder))[1]:
+            shutil.rmtree(os.path.join(root_folder, subfolder))
 
     def scrape(self) -> dict:
         """Scrapes Apple Music web player for album info.

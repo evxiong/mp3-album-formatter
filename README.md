@@ -56,16 +56,16 @@ a command line tool to update MP3 metadata according to Apple Music
 #### General Usage
 
 ```
-python3 formatter.py [options] <album_path> [dest_path] <AM_album_link>
+python3 formatter.py [options] <album_path> [<dest_path>] <AM_album_link>
 ```
 
 #### Arguments
 
-- `album_path`: **relative** path to album folder or album ZIP. This folder or
+- `<album_path>`: **relative** path to album folder or album ZIP. This folder or
   ZIP contains all MP3 files you want to update.
-- `dest_path`: **relative** path to unzipped destination folder, only required
+- `<dest_path>`: **relative** path to unzipped destination folder, only required
   if `-x` (extract) option specified
-- `AM_album_link`: full URL to album page on Apple Music Web Player (ex.
+- `<AM_album_link>`: full URL to album page on Apple Music Web Player (ex.
   https://music.apple.com/us/album/thriller/269572838)
 
 #### Options
@@ -126,7 +126,6 @@ Playwright, Mutagen, RapidFuzz, Questionary, Tabulate
 ## Future features
 
 - Support for user-specified file name format
-- Support for nested MP3 files in the album folder
 - Support for using track name metadata for matching, when file names are not helpful
 
 -->
