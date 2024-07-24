@@ -18,25 +18,39 @@ class MismatchException(Exception):
     pass
 
 
+class InvalidFormatException(Exception):
+    pass
+
+
 class Formatter:
     def __init__(
         self,
         album_path: str,
         dest_path: str,
         album_link: str,
-        extract: bool = False,
-        preserve_album: bool = False,
-        preserve_songs: bool = False,
+        extract: bool,
+        preserve_album_name: bool,
+        preserve_song_names: bool,
+        album_name_format: str | None,
+        song_name_format: str | None,
     ):
+        if album_name_format == "" or song_name_format == "":
+            raise InvalidFormatException("Invalid name format: empty string")
+
         if os.path.exists(album_path):
             self.__album_path = album_path
         else:
             raise FileNotFoundError(f"Could not find {album_path}")
+
+        self.__album_name_format = (
+            "%a" if album_name_format is None else album_name_format
+        )
+        self.__song_name_format = "%t" if song_name_format is None else song_name_format
         self.__dest_path = dest_path
         self.__album_link = album_link
         self.__flag_extract = extract
-        self.__flag_preserve_album = preserve_album
-        self.__flag_preserve_songs = preserve_songs
+        self.__flag_preserve_album_name = preserve_album_name
+        self.__flag_preserve_song_names = preserve_song_names
         self.__metadata = {}
 
     def run(self):
@@ -46,7 +60,6 @@ class Formatter:
             self.scrape()
             filenames_to_track_inds = self.match()
             self.update(filenames_to_track_inds)
-            self.delete_zip()
         except Exception as e:
             # delete unzipped folder
             if self.__dest_path and os.path.isdir(self.__dest_path):
@@ -63,7 +76,6 @@ class Formatter:
     def delete_zip(self) -> None:
         """Prompt user to delete original ZIP"""
         if self.__flag_extract:
-            print()
             proceed = questionary.confirm(
                 f"Delete original ZIP file: {self.__album_path}?",
                 qmark="[>]",
@@ -431,6 +443,51 @@ class Formatter:
                     best_match_inds, best_scores, file_names_ext, scraped_tracks
                 )
 
+    def format_album_name(self) -> str:
+        """Formats album folder name"""
+        name_format_dict = {
+            "%a": self.__metadata["album_name"],
+            "%r": ", ".join(self.__metadata["album_artists"]),
+            "%g": self.__metadata["genre"],
+            "%y": self.__metadata["year"],
+        }
+        format = self.__album_name_format
+        for mod, replaced in name_format_dict.items():
+            format = format.replace(mod, replaced)
+        return format
+
+    def format_song_names(self, matched_track_inds: List[int]) -> List[str]:
+        """Formats song file names
+
+        Returns:
+        - List[str]: list of formatted file names in same order as matched_track_inds
+
+        Returned names do not include .mp3 extension
+        """
+        name_format_dict = {
+            "%a": self.__metadata["album_name"],
+            "%r": ", ".join(self.__metadata["album_artists"]),
+            "%g": self.__metadata["genre"],
+            "%y": self.__metadata["year"],
+        }
+        formatted_names = []
+        for track_ind in matched_track_inds:
+            name_format_dict["%t"] = self.__metadata["tracks"][track_ind]["name"]
+            name_format_dict["%s"] = ", ".join(
+                self.__metadata["tracks"][track_ind]["artists"]
+            )
+            name_format_dict["%n"] = str(
+                self.__metadata["tracks"][track_ind]["num"]
+            ).zfill(2)
+            name_format_dict["%d"] = str(self.__metadata["tracks"][track_ind]["disc"])
+
+            format = self.__song_name_format
+            for mod, replaced in name_format_dict.items():
+                format = format.replace(mod, replaced)
+            formatted_names.append(format)
+
+        return formatted_names
+
     def update(self, filenames_to_track_inds: dict[str, int]) -> None:
         """Update current songs' metadata
 
@@ -531,28 +588,31 @@ class Formatter:
             # save metadata
             audio.save(v2_version=3)
 
-            # rename track file
-            if not self.__flag_preserve_songs:
-                new_file_name = (
-                    " ".join(
-                        re.sub(
-                            r'[<>:"\/\\\|\?\*]',
-                            "",
-                            self.__metadata["tracks"][i]["name"],
-                        ).split()
+        # rename track files
+        if not self.__flag_preserve_song_names:
+            print("Renaming song files...")
+            formatted_names = self.format_song_names(
+                list(filenames_to_track_inds.values())
+            )
+            if len(formatted_names) == len(set(formatted_names)):
+                for i, file_name in enumerate(filenames_to_track_inds.keys()):
+                    new_file_name = (
+                        re.sub(r'[<>:"\/\\\|\?\*]', "", formatted_names[i]) + ".mp3"
                     )
-                    + ".mp3"
-                )
-                os.rename(
-                    os.path.join(update_path, file_name),
-                    os.path.join(update_path, new_file_name),
+                    os.rename(
+                        os.path.join(update_path, file_name),
+                        os.path.join(update_path, new_file_name),
+                    )
+            else:
+                questionary.print(
+                    "Using the specified song name format, some files will have the same name. Aborting song file renaming.",
+                    style="bold fg:red",
                 )
 
         # rename album folder
-        if not self.__flag_preserve_album:
-            new_album_name = " ".join(
-                re.sub(r'[<>:"\/\\\|\?\*]', "", self.__metadata["album_name"]).split()
-            )
+        if not self.__flag_preserve_album_name:
+            print("Renaming album folder...")
+            new_album_name = re.sub(r'[<>:"\/\\\|\?\*]', "", self.format_album_name())
             os.rename(
                 update_path,
                 os.path.join(
@@ -560,6 +620,7 @@ class Formatter:
                 ),
             )
 
+        self.delete_zip()
         print("✨ Done! ✨")
         print(f"Successfully updated {len(filenames_to_track_inds)} songs.")
 
@@ -591,15 +652,27 @@ def main() -> None:
     )
     parser.add_argument(
         "-a",
-        "--preserve-album",
+        "--preserve-album-name",
         action="store_true",
         help="do not change album folder name\nif -x, do not change dest_path folder name",
     )
     parser.add_argument(
         "-s",
-        "--preserve-songs",
+        "--preserve-song-names",
         action="store_true",
         help="do not change song file names",
+    )
+    parser.add_argument(
+        "-A",
+        "--album-name-format",
+        metavar='"<format>"',
+        help="%%a - album name\n%%r - album artist(s)\n%%g - album genre\n%%y - album year",
+    )
+    parser.add_argument(
+        "-S",
+        "--song-name-format",
+        metavar='"<format>"',
+        help="note: <format> is just for the name and should not contain '.mp3' at end\n%%t - track name\n%%s - add'l track artist(s)\n%%n - track number w/ leading 0 for single digits, ex. '01'\n%%d - track disc number\n%%a - album name\n%%r - album artist(s)\n%%g - album genre\n%%y - album year",
     )
 
     args = parser.parse_args()
@@ -615,8 +688,10 @@ def main() -> None:
         args.dest_path,
         args.AM_album_link,
         args.extract,
-        args.preserve_album,
-        args.preserve_songs,
+        args.preserve_album_name,
+        args.preserve_song_names,
+        args.album_name_format,
+        args.song_name_format,
     )
     formatter.run()
 
