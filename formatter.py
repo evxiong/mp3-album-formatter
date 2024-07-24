@@ -687,57 +687,61 @@ class Formatter:
 def main() -> None:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
-        description="Updates album and song metadata",
-        epilog="examples:\n  python3 formatter.py ./album-folder https://music.apple.com/us/album/thriller/269572838\n  python3 formatter.py -x ./zipped-album.zip ./album-dest-folder https://music.apple.com/us/album/thriller/269572838",
+        description="Updates album and song metadata\nhttps://github.com/evxiong/mp3-album-formatter",
+        usage="python3 formatter.py [options] <album_path> [<dest_path>] <AM_album_link>",
     )
     parser.add_argument(
-        "album_path", help="relative path to album folder containing songs, or zip"
+        "album_path",
+        metavar="<album_path>",
+        help="Relative path to album folder or album ZIP; this folder or\nZIP contains all MP3 files you want to update",
     )
     parser.add_argument(
         "dest_path",
         nargs="?",
         default=None,
-        help="relative path to unzipped destination folder, required if using -x\ncreates folder if it does not exist",
+        metavar="<dest_path>",
+        help="Relative path to unzipped destination folder, only required\nif `-x` (extract) option specified",
     )
     parser.add_argument(
         "AM_album_link",
-        help="Apple Music Web Player link to album\nex. https://music.apple.com/us/album/thriller/269572838",
+        metavar="<AM_album_link>",
+        help="Full URL to album page on Apple Music Web Player (ex.\nhttps://music.apple.com/us/album/thriller/269572838)",
     )
     parser.add_argument(
         "-x",
         "--extract",
         action="store_true",
-        help="extract files from album_path zip file to dest_path",
+        help="Extract songs from <album_path> ZIP file to <dest_path>;\ncreates destination folder if it does not exist",
     )
     parser.add_argument(
         "-m",
         "--use-metadata",
         action="store_true",
-        help="use existing track name metadata instead of file name to match files to album tracks",
+        help="Use existing track name metadata instead of file name to\nmatch files to album tracks",
     )
     parser.add_argument(
         "-a",
         "--preserve-album-name",
         action="store_true",
-        help="do not change album folder name\nif -x, do not change dest_path folder name",
+        help="Keep current album folder name unchanged; without any\noptions, renames album folder to match album name",
     )
     parser.add_argument(
         "-s",
         "--preserve-song-names",
         action="store_true",
-        help="do not change song file names",
+        help="Keep current file names unchanged; without any options,\nrenames all song files to match track names",
     )
     parser.add_argument(
         "-A",
         "--album-name-format",
         metavar='"<format>"',
-        help="%%a - album name\n%%r - album artist(s)\n%%g - album genre\n%%y - album year",
+        help="""Specify custom format for renaming album folder name:\n    %%a - album name\n    %%r - album artist(s)\n    %%g - album genre\n    %%y - album year\nUse quotes around the format:\n    ex. -A "%%r - %%a"\n        ==>  folder name: "Michael Jackson - Thriller"\nDefault format is "%%a" """,
     )
     parser.add_argument(
         "-S",
         "--song-name-format",
         metavar='"<format>"',
-        help="note: <format> is just for the name and should not contain '.mp3' at end\n%%t - track name\n%%s - add'l track artist(s)\n%%n - track number w/ leading 0 for single digits, ex. '01'\n%%d - track disc number\n%%a - album name\n%%r - album artist(s)\n%%g - album genre\n%%y - album year",
+        help="""Specify custom format for renaming song file names:\n    %%t - track name\n    %%s - add'l track artist(s)\n    %%n - track number w/ leading 0 for single digits, ex. '01'\n    %%d - track disc number\n    %%a - album name\n    %%r - album artist(s)\n    %%g - album genre\n    %%y - album year\nUse quotes around the format, and do not include '.mp3':\n    ex. -S "%%d.%%n - %%t"\n        ==>  file name: "1.01 - Wanna Be Startin' Somethin'.mp3"\nDefault format is "%%t" """,
     )
 
     args = parser.parse_args()

@@ -87,13 +87,13 @@ usage:
 
 
 arguments:
-    <album_path>            relative path to album folder or album ZIP. This folder or
-                            ZIP contains all MP3 files you want to update.
+    <album_path>            Relative path to album folder or album ZIP; this folder or
+                            ZIP contains all MP3 files you want to update
 
-    <dest_path>             relative path to unzipped destination folder, only required
+    <dest_path>             Relative path to unzipped destination folder, only required
                             if `-x` (extract) option specified
 
-    <AM_album_link>         full URL to album page on Apple Music Web Player (ex.
+    <AM_album_link>         Full URL to album page on Apple Music Web Player (ex.
                             https://music.apple.com/us/album/thriller/269572838)
 
 
