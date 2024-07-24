@@ -3,8 +3,9 @@
 a command line tool to update MP3 metadata, folders, and file names according to
 Apple Music
 
-> [!IMPORTANT] This script is designed specifically to work on **MP3 files
-> only**. MP3 files in the album must have already have file names or track name
+> [!IMPORTANT]
+> This script is designed specifically to work on **MP3 files only**.
+> MP3 files in the album must have already have file names or track name
 > metadata similar to the actual track names listed on Apple Music.
 
 - [What it does](#what-it-does)
