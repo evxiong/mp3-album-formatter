@@ -7,6 +7,19 @@ Apple Music
 > only**. MP3 files in the album must have already have file names or track name
 > metadata similar to the actual track names listed on Apple Music.
 
+- [What it does](#what-it-does)
+- [Getting started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+- [Usage](#usage)
+- [Examples](#examples)
+  - [Standard usage](#standard-usage)
+  - [Unzip/extract album](#unzipextract-album)
+  - [Preserve current album folder and song file names](#preserve-current-album-folder-and-song-file-names)
+  - [Custom formatting for album folder and song file names](#custom-formatting-for-album-folder-and-song-file-names)
+- [How it works](#how-it-works)
+- [Packages used](#packages-used)
+
 ## What it does
 
 - Updates ID3 metadata for each MP3 song in the specified album folder according
@@ -14,7 +27,7 @@ Apple Music
 
   - album name
   - album artist(s)
-  - album cover (512x512 jpg)
+  - embedded album cover (512x512 jpg)
   - album genre
   - album year
   - track name
@@ -33,86 +46,100 @@ Apple Music
   - By default, treats album folder as unzipped
     - `-x` flag unzips album ZIP to a specified destination folder
   - By default, uses file names to match album tracks
-    - `-m` flag uses each file's existing track name metadata
+    - `-m` flag uses each file's existing track name metadata instead of file
+      name
 
-## How to use
+## Getting started
+
+Follow these instructions to install mp3-album-formatter locally:
 
 ### Prerequisites
 
+- **Python 3.12+**
 - All of the songs you want to update should belong to the same album and be
   contained in a single folder or ZIP. Any songs within nested folders will be
   moved to the root album folder.
 - The number of songs in the album folder must be <= the total number of tracks
   in the album.
 - Song file names and/or existing track name metadata should be close to
-  (doesn't need to be exact) their track names listed on Apple Music -- this is
-  so that the script can match files with the correct metadata.
+  (doesn't need to be exact) their track names listed on Apple Music &mdash;
+  this is so that the script can match files with the correct metadata.
 
 ### Setup
 
-1. `git clone` this repo
-2. `cd` into the folder
-3. run `pip install requirements.txt`
+1. Clone this repo
 
-### Usage
-
-#### General Usage
-
-```
-python3 formatter.py [options] <album_path> [<dest_path>] <AM_album_link>
+```bash
+git clone https://github.com/evxiong/mp3-album-formatter.git && cd mp3-album-formatter
 ```
 
-#### Arguments
+2. Install packages
 
-- `<album_path>`: **relative** path to album folder or album ZIP. This folder or
-  ZIP contains all MP3 files you want to update.
-- `<dest_path>`: **relative** path to unzipped destination folder, only required
-  if `-x` (extract) option specified
-- `<AM_album_link>`: full URL to album page on Apple Music Web Player (ex.
-  https://music.apple.com/us/album/thriller/269572838)
-
-#### Options
-
-```
--x, --extract           extract songs from <album_path> ZIP file to <dest_path>
-                        creates destination folder if it does not exist
-
--m, --use-metadata      use existing track name metadata instead of file name to match files to album tracks
-
--a, --preserve-album    keep album folder name the same;
-                        without any options, default behavior is to rename album folder to match album name
-
--s, --preserve-songs    keep all song file names the same;
-                        without any options, default behavior is to rename all song files to match track names
-
--A "<format>", --album-name-format "<format>"
-                        specify custom format for renaming album folder name:
-                          %a - album name
-                          %r - album artist(s)
-                          %g - album genre
-                          %y - album year
-                        use quotes around the format:
-                          ex. -A "%r - %a"  ==>  folder name: "Michael Jackson - Thriller"
-                        without this option, default format is "%a"
-
--S "<format>", --song-name-format "<format>"
-                        specify custom format for renaming song file names:
-                          %t - track name
-                          %s - add'l track artist(s)
-                          %n - track number w/ leading 0 for single digits, ex. '01'
-                          %d - track disc number
-                          %a - album name
-                          %r - album artist(s)
-                          %g - album genre
-                          %y - album year
-                        use quotes around the format, and do not include '.mp3':
-                          ex. -S "%d.%n - %t"  ==>  file name: "1.01 - Wanna Be Startin' Somethin'.mp3"
-                        without this option, default format is "%t"
+```bash
+pip install -r requirements.txt
 ```
 
-#### Examples
+## Usage
 
-##### Standard usage
+```
+usage:
+    python3 formatter.py [options] <album_path> [<dest_path>] <AM_album_link>
+
+
+arguments:
+    <album_path>            relative path to album folder or album ZIP. This folder or
+                            ZIP contains all MP3 files you want to update.
+
+    <dest_path>             relative path to unzipped destination folder, only required
+                            if `-x` (extract) option specified
+
+    <AM_album_link>         full URL to album page on Apple Music Web Player (ex.
+                            https://music.apple.com/us/album/thriller/269572838)
+
+
+options:
+    -x, --extract           Extract songs from <album_path> ZIP file to <dest_path>;
+                            creates destination folder if it does not exist
+
+    -m, --use-metadata      Use existing track name metadata instead of file name to
+                            match files to album tracks
+
+    -a, --preserve-album    Keep current album folder name unchanged; without any
+                            options, renames album folder to match album name
+
+    -s, --preserve-songs    Keep current file names unchanged; without any options,
+                            renames all song files to match track names
+
+    -A "<format>", --album-name-format "<format>"
+                            Specify custom format for renaming album folder name:
+                                %a - album name
+                                %r - album artist(s)
+                                %g - album genre
+                                %y - album year
+                            Use quotes around the format:
+                                ex. -A "%r - %a"
+                                    ==>  folder name: "Michael Jackson - Thriller"
+                            Default format is "%a"
+
+    -S "<format>", --song-name-format "<format>"
+                            Specify custom format for renaming song file names:
+                                %t - track name
+                                %s - add'l track artist(s)
+                                %n - track number w/ leading 0 for single digits, ex. '01'
+                                %d - track disc number
+                                %a - album name
+                                %r - album artist(s)
+                                %g - album genre
+                                %y - album year
+                            Use quotes around the format, and do not include '.mp3':
+                                ex. -S "%d.%n - %t"
+                                    ==>  file name: "1.01 - Wanna Be Startin' Somethin'.mp3"
+                            Default format is "%t"
+```
+
+## Examples
+
+### Standard usage
 
 - This will match all song files in `../album_folder` to the tracks in the
   album, update their metadata, then rename the folder to match the album name
@@ -120,11 +147,11 @@ python3 formatter.py [options] <album_path> [<dest_path>] <AM_album_link>
 - All song files will be renamed to their track names (ex.
   `Wanna Be Startin' Something'.mp3`)
 
-```
+```bash
 python3 formatter.py ../album_folder https://music.apple.com/us/album/thriller/269572838
 ```
 
-##### Unzip/extract album
+### Unzip/extract album
 
 - This will extract `../album.zip` to the specified location
   (`../music/dest_folder`), then rename it to match the album name
@@ -132,23 +159,23 @@ python3 formatter.py ../album_folder https://music.apple.com/us/album/thriller/2
 - To preserve the specified destination folder name of `dest_folder`, you must
   also use `-a`
 
-```
+```bash
 python3 formatter.py -x ../album.zip ../music/dest_folder https://music.apple.com/us/album/thriller/269572838
 ```
 
-##### Preserve album folder and song file names
+### Preserve current album folder and song file names
 
-```
+```bash
 python3 formatter.py -as ../album_folder https://music.apple.com/us/album/thriller/269572838
 ```
 
-##### Custom formatting for album folder and song file names
+### Custom formatting for album folder and song file names
 
 - This will rename `../album_folder` to `../Thriller (1982)`
 - Each song file will be renamed to something like
   `Michael Jackson - Wanna Be Startin' Somethin'.mp3`
 
-```
+```bash
 python3 formatter.py -A "%a (%y)" -S "%r - %t" ../album_folder https://music.apple.com/us/album/thriller/269572838
 ```
 
