@@ -35,6 +35,24 @@ class Formatter:
         album_name_format: str | None,
         song_name_format: str | None,
     ):
+        """Constructs Formatter object.
+
+        Args:
+            album_path (str): relative path to album folder or ZIP
+            dest_path (str): relative path to unzipped destination folder
+            album_link (str): link to Apple Music album page
+            extract (bool): extract album from ZIP
+            use_metadata (bool): use metadata instead of file name for matching
+            preserve_album_name (bool): preserve album folder name
+            preserve_song_names (bool): preserve song file names
+            album_name_format (str | None): custom album folder name format
+            song_name_format (str | None): custom song file name format
+
+        Raises:
+            InvalidFormatException: user input invalid album folder or song
+              file name format
+            FileNotFoundError: album_path does not exist
+        """
         if album_name_format == "" or song_name_format == "":
             raise InvalidFormatException("Invalid name format: empty string")
 
@@ -58,7 +76,7 @@ class Formatter:
         )
         self.__metadata = {}
 
-    def run(self):
+    def run(self) -> None:
         try:
             self.unzip()
             self.flatten()
@@ -72,14 +90,14 @@ class Formatter:
             print(e)
 
     def unzip(self) -> None:
-        """Unzip album"""
+        """Extracts album_path ZIP to dest_path."""
         if self.__flag_extract:
             print("Unzipping file...")
             with ZipFile(self.__album_path, "r") as z:
                 z.extractall(self.__dest_path)
 
     def delete_zip(self) -> None:
-        """Prompt user to delete original ZIP"""
+        """Prompts user to delete original album_path ZIP."""
         if self.__flag_extract:
             proceed = questionary.confirm(
                 f"Delete original ZIP file: {self.__album_path}?",
@@ -92,9 +110,9 @@ class Formatter:
                 print("File deleted.")
 
     def flatten(self) -> None:
-        """Move all files out of nested folders into root album folder
+        """Moves all files out of nested folders into root album folder.
 
-        Deletes all nested folders after moving files
+        Deletes all nested folders after moving files.
         """
         root_folder = self.__update_path
         for root, _, files in os.walk(root_folder):
@@ -119,23 +137,24 @@ class Formatter:
         """Scrapes Apple Music web player for album info.
 
         Updates self.__metadata with the following info:
-        {
-            album_name: str,
-            album_artists: [str],
-            cover: str,  # link to cover art
-            genre: str,
-            year: str,
-            tracks:[{
-                name: str,
-                num: int,  # track num on this disc
-                total_num: int,  # total num of tracks on this disc
-                disc: int,  # current disc num
-                total_disc: int,  # total num of discs
-                artists: [str]  # track-specific artists
-            }]
-        }
+            {
+                album_name: str,
+                album_artists: [str],
+                cover: str,  # link to cover art
+                genre: str,
+                year: str,
+                tracks:[{
+                    name: str,
+                    num: int,  # track num on this disc
+                    total_num: int,  # total num of tracks on this disc
+                    disc: int,  # current disc num
+                    total_disc: int,  # total num of discs
+                    artists: [str]  # track-specific artists
+                }]
+            }
 
-        Returns self.__metadata
+        Returns:
+            dict: self.__metadata
         """
 
         print("Scraping metadata...")
@@ -206,19 +225,25 @@ class Formatter:
         scraped_tracks: List[str],
         existing_metadata_titles: List[str],
     ) -> dict[str, int]:
-        """Match files to tracks when there are less files than tracks in album.
+        """Matches files to tracks when there are less files than album tracks.
 
         Args:
-        - matrix: ndarray dim # files x # tracks
-        - file_names_ext: List[str] list of file names with extensions (.mp3)
+            best_match_inds (ndarray): length = # files, best_match_inds[i] is
+              most similar scraped_tracks index for index i in file_names_ext
+            file_names_ext (List[str]): file names with extensions (.mp3)
+            scraped_tracks_dict (dict[str, int]): scraped track name -> track
+              index (0-based)
+            scraped_tracks (List[str]): scraped track names
+            existing_metadata_titles (List[str]): files' existing ID3 track
+              names
 
         Returns:
-        - dict[str, int]: file name -> track index (0-based)
-
+            dict[str, int]: file name -> track index (0-based)
         """
         # prompt user input for confirmation
         proceed = questionary.confirm(
-            f"There are less MP3 files ({len(file_names_ext)}) than songs in the album ({len(scraped_tracks)}). Proceed?",
+            f"""There are less MP3 files ({len(file_names_ext)}) than songs in the album ({
+                len(scraped_tracks)}). Proceed?""",
             qmark="[>]",
             default=True,
             auto_enter=False,
@@ -263,7 +288,8 @@ class Formatter:
 
         for i, file_name in enumerate(file_names_ext):
             chosen = questionary.autocomplete(
-                f"{file_name}{" [" + existing_metadata_titles[i] + "]" if self.__flag_use_metadata else ""}:",
+                f"""{file_name}{" [" + existing_metadata_titles[i] +
+                              "]" if self.__flag_use_metadata else ""}:""",
                 choices=scraped_tracks_copy,
                 qmark="[>]",
                 default=(
@@ -286,6 +312,21 @@ class Formatter:
         scraped_tracks: List[str],
         existing_metadata_titles: List[str],
     ) -> dict[str, int]:
+        """Matches files to tracks when there are as many files as album tracks.
+
+        Args:
+            best_match_inds (ndarray): length = # files, best_match_inds[i] is
+              most similar scraped_tracks index for index i in file_names_ext
+            best_scores (ndarray): length = # files, best_scores[i] is highest
+              score for index i in file_names
+            file_names_ext (List[str]): file names with extensions (.mp3)
+            scraped_tracks (List[str]): scraped track names
+            existing_metadata_titles (List[str]): files' existing ID3 track
+              names
+
+        Returns:
+            dict[str, int]: file name -> track index (0-based)
+        """
         # If there are duplicates, they need to be manually corrected in cmd line
         matched_track_names = []  # [(int, int, str, str, float)] for display
         unmatched_tracks = []  # unresolved track names
@@ -429,17 +470,16 @@ class Formatter:
         return {field[3]: i for i, field in enumerate(matched_track_names)}
 
     def match(self) -> dict[str, int]:
-        """Use RapidFuzz to match current songs with scraped track names
+        """Matches files to album tracks.
 
-        Prompts for user input if matches can't be resolved
+        Uses RapidFuzz to match file names or existing track name metadata with
+        scraped track names.
 
-        args:
-        - file_names: file names in specified directory, incl extensions
-        - metadata: album metadata scraped from Apple Music
+        Raises:
+            MismatchException: more files than album tracks
 
-        returns:
-        - List[str]: file names in track listing order
-
+        Returns:
+            dict[str, int]: file name -> track index (0-based)
         """
         print("Matching songs...")
         file_names_ext = [
@@ -504,7 +544,11 @@ class Formatter:
                 )
 
     def format_album_name(self) -> str:
-        """Formats album folder name"""
+        """Creates new album folder name based on specified album_name_format
+
+        Returns:
+            str: new album folder name
+        """
         name_format_dict = {
             "%a": self.__metadata["album_name"],
             "%r": ", ".join(self.__metadata["album_artists"]),
@@ -517,12 +561,11 @@ class Formatter:
         return format
 
     def format_song_names(self, matched_track_inds: List[int]) -> List[str]:
-        """Formats song file names
+        """Creates new song file names based on specified song_name_format
 
         Returns:
-        - List[str]: list of formatted file names in same order as matched_track_inds
-
-        Returned names do not include .mp3 extension
+            List[str]: new song file names in same order as matched_track_inds;
+              names do not include .mp3 extension
         """
         name_format_dict = {
             "%a": self.__metadata["album_name"],
@@ -549,11 +592,11 @@ class Formatter:
         return formatted_names
 
     def update(self, filenames_to_track_inds: dict[str, int]) -> None:
-        """Update current songs' metadata
+        """Update song file metadata and rename album folder, song files
 
-        Args
-        - filenames_to_track_inds: file name -> track index (0-based)
-
+        Args:
+            filenames_to_track_inds (dict[str, int]): file name -> track index
+              (0-based)
         """
         # prompt user input for confirmation
         print()
@@ -623,7 +666,7 @@ class Formatter:
                         encoding=3,
                         text=[
                             f"{self.__metadata["tracks"][i]["num"]
-                            }/{self.__metadata["tracks"][i]["total_num"]}"
+                               }/{self.__metadata["tracks"][i]["total_num"]}"
                         ],
                     )
                 ],
@@ -637,7 +680,7 @@ class Formatter:
                         encoding=3,
                         text=[
                             f"{self.__metadata["tracks"][i]["disc"]
-                            }/{self.__metadata["tracks"][i]["total_disc"]}"
+                               }/{self.__metadata["tracks"][i]["total_disc"]}"
                         ],
                     )
                 ],
