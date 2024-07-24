@@ -36,7 +36,7 @@ Apple Music
   - track number
   - disc number
 
-- **Modifiable behavior** (see [Options](#options) for details):
+- **Modifiable behavior** (see [Usage](#usage) for details):
 
   - By default, updates album folder name to match album name
     - `-a` flag keeps current folder name unchanged
